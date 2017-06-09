@@ -7,6 +7,12 @@ import tempfile
 import os
 import time
 
+try:
+    import toml
+    HAS_TOML_MODULE = True
+except ModuleNotFoundError:
+    HAS_TOML_MODULE = False
+
 def is_habitat_supervisor_running(module):
     cmd = "%s sup status" % (HABITAT_PATH)
     rc, stdout, stderr = module.run_command(cmd, check_rc=False)
@@ -141,10 +147,6 @@ def recursive_diff(data, temp_data):
     return new_data
 
 def update_service(module, env_update, exit):
-    try:
-        import toml
-    except ModuleNotFoundError:
-        module.fail_json(msg="toml Python library is required")
 
     p = module.params
 
@@ -223,6 +225,9 @@ def main():
         required_one_of=[['name', 'sup_state']],
         mutually_exclusive=[['name', 'sup_state']]
     )
+
+    if not HAS_TOML_MODULE:
+        module.fail_json(msg="toml Python library is required")
 
     global HABITAT_PATH
     HABITAT_PATH = module.get_bin_path('hab', required=True)
