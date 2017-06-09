@@ -258,8 +258,13 @@ def main():
         s =  get_state(p['name'], p['group'])
 
         if get_state(p['name'], p['group']) == 'up':
-            stop_service(module, 'transient', True)
+            if get_style(p['name'], p['group']) == 'persistent' and p['style'] == 'transient':
+                stop_service(module, 'persistent', False)
+            else:
+                stop_service(module, 'transient', True)
         else:
+            if get_style(p['name'], p['group']) == 'persistent' and p['style'] == 'transient':
+                stop_service(module, 'persistent', True)
             module.exit_json()
 
 if __name__ == '__main__':
