@@ -119,7 +119,10 @@ def get_next_incarnation(name, group):
 def get_style(name, group):
     r = requests.get('http://127.0.0.1:9631/services/%s/%s' %
         (name, group))
-    return (r.json()['start_style'].lower())
+    try:
+        return (r.json()['start_style'].lower())
+    except:
+        return None
 
 def get_state(name, group):
     r = requests.get('http://127.0.0.1:9631/services/%s/%s' %
