@@ -110,7 +110,11 @@ def get_service_config(name, group):
 
 def get_next_incarnation(name, group):
     r = requests.get('http://127.0.0.1:9631/census')
-    return (r.json()['census_groups']["%s.%s" % (name, group)]['service_config']['incarnation'] + 1)
+
+    try:
+        return (r.json()['census_groups']["%s.%s" % (name, group)]['service_config']['incarnation'] + 1)
+    except TypeError:
+        return 1
 
 def get_style(name, group):
     r = requests.get('http://127.0.0.1:9631/services/%s/%s' %
