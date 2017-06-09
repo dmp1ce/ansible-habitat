@@ -227,7 +227,7 @@ def main():
             sup_state   = dict(default='up', choices=['up', 'down']),
             state       = dict(default='up', choices=['up', 'down']),
             style       = dict(default='persistent', choices=['persistent', 'transient']),
-            environment = dict(required=False, type='dict')
+            environment = dict(default={}, required=False, type='dict')
         ),
         required_one_of=[['name', 'sup_state']],
         mutually_exclusive=[['name', 'sup_state']]
