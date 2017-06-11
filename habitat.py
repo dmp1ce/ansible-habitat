@@ -130,8 +130,7 @@ def get_state(name, group):
 
     return (s)
 
-
-def _check_file(module, src_path, dest_dir_path)
+def _check_file(module, src_path, dest_dir_path):
     # Get hash of local origin key
     try:
         checksum_src = module.sha256(src_path)
