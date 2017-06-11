@@ -27,17 +27,13 @@ def is_habitat_supervisor_running(module):
         module.fail_json(msg="Unknown error with 'hab sup status'",
                          rc=rc, stdout=stdout, stderr=stderr)
 
-def turn_off_supervisor(module, exit):
+def turn_off_supervisor(module):
     cmd = "%s sup term" % (HABITAT_PATH)
-    rc, stdout, stderr = module.run_command(cmd, check_rc=True)
+    rc, stdout, stderr = module.run_command(cmd, check_rc=False)
  
-    if exit:
-        module.exit_json(changed=True, msg='Terminated Habitat supervisor',
-                         rc=rc, stdout=stdout, stderr=stderr)
-    else:
-        return True
+    return (rc, stdout, stderr)
 
-def turn_on_supervisor(module, exit):
+def turn_on_supervisor(module):
     # Currently there is no way, that I know of, to run
     # supervisor in background with Ansible
 
@@ -134,6 +130,43 @@ def get_state(name, group):
 
     return (s)
 
+
+def _check_file(module, src_path, dest_dir_path)
+    # Get hash of local origin key
+    try:
+        checksum_src = module.sha256(src_path)
+    except:
+        module.exit_json(msg='Unable to checksum %s' % src_path)
+
+    # Check to see if key is already installed
+    for root, _, files in os.walk(dest_dir_path):
+        for f in files:
+            if module.sha256(os.path.join(root, f)) == checksum_src:
+                return True
+    return False
+
+def check_origin_key(module):
+    return _check_file(module, module.params['origin_key'], '/hab/cache/keys')
+
+def install_origin_key(module):
+    k = module.params['origin_key']
+
+    # Install origin key
+    with open(k) as k_file:
+       k_data = k_file.read()
+
+    cmd = "%s origin key import" % (HABITAT_PATH)
+    return module.run_command(cmd, check_rc=True, data=k_data)
+
+def check_hart(module):
+    return _check_file(module, module.params['hart'], '/hab/cache/artifacts')
+
+def install_hart(module):
+    h = module.params['hart']
+
+    cmd = "%s pkg install %s" % (HABITAT_PATH, h)
+    return module.run_command(cmd, check_rc=True, data=k_data)
+
 # https://github.com/cjohnweb/python-dict-recursive-diff
 def recursive_diff(data, temp_data):
     new_data = {}
@@ -227,10 +260,11 @@ def main():
             sup_state   = dict(default='up', choices=['up', 'down']),
             state       = dict(default='up', choices=['up', 'down']),
             style       = dict(default='persistent', choices=['persistent', 'transient']),
-            environment = dict(default={}, required=False, type='dict')
+            environment = dict(default={}, required=False, type='dict'),
+            origin_key  = dict(default=None, type='path'),
+            hart        = dict(default=None, type='path')
         ),
-        required_one_of=[['name', 'sup_state']],
-        mutually_exclusive=[['name', 'sup_state']]
+        required_one_of=[['name', 'sup_state', 'origin_key', 'hart']],
     )
 
     if not HAS_TOML_MODULE:
@@ -240,18 +274,34 @@ def main():
     HABITAT_PATH = module.get_bin_path('hab', required=True)
 
     p = module.params
+    changed = False
 
     # Verify supervisor is running
     hab_sup_up=is_habitat_supervisor_running(module)
     if hab_sup_up and p["sup_state"] == 'down':
-        turn_off_supervisor(module, True)
+        rc, stdout, stderr = turn_off_supervisor(module)
+        module.exit_json(changed=True, msg='Terminated Habitat supervisor',
+                         rc=rc, stdout=stdout, stderr=stderr)
     elif not hab_sup_up and p["sup_state"] == 'up':
-        turn_on_supervisor(module, True)
+        turn_on_supervisor(module)
+        changed = True
+
+    # Install origin key
+    if p['origin_key']:
+        if not check_origin_key(module):
+            rc, stdout, stderr = install_origin_key(module)
+            changed=True
+    # Install hart
+    if p['hart']:
+        if not check_hart(module):
+            rc, stdout, stderr = install_hart(module)
+            changed=True
 
     # No need to continue if service name is not specified
     if not p["name"]:
-        module.exit_json()
+        module.exit_json(changed=changed)
 
+    # Start or stop named service
     if p['state'] == 'up':
         process_service_config(module)
     else:
